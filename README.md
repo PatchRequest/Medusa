@@ -1,4 +1,6 @@
-# Sample WDM Rust Driver
+# Kernel Driver in Rust
+
+A Windows kernel driver written in Rust for fun and learning. Currently supports reading and writing arbitrary data in any process via userland communication.
 
 ## Pre-requisites
 
