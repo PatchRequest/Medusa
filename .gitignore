@@ -1,0 +1,16 @@
+# Rust build artifacts
+target/
+
+# Claude Code files
+.claude/
+
+# Cargo lock file (optional for applications, required for libraries)
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

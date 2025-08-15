@@ -1,0 +1,75 @@
+[package]
+edition = "2021"
+name = "medusa"
+version = "0.0.0"
+description = "A sample WDM driver that demonstrates WDM in RUST"
+repository = "https://github.com/microsoft/windows-drivers-rs"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["windows", "driver", "sample", "example", "wdm"]
+categories = ["hardware-support"]
+publish = false
+
+[package.metadata.wdk.driver-model]
+driver-type = "WDM"
+
+[lib]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+wdk-build = { path = "../../crates/wdk-build", version = "0.4.0" }
+
+[dependencies]
+wdk-alloc = { path = "../../crates/wdk-alloc", version = "0.3.1" }
+wdk = { path = "../../crates/wdk", version = "0.3.1" }
+wdk-panic = { path = "../../crates/wdk-panic", version = "0.3.1" }
+wdk-sys = { path = "../../crates/wdk-sys", version = "0.4.0" }
+mem = "0.5.0"
+ntapi = "0.4.1"
+
+[features]
+default = []
+
+gpio = ["wdk-sys/gpio"]
+hid = ["wdk-sys/hid"]
+parallel-ports = ["wdk-sys/parallel-ports"]
+spb = ["wdk-sys/spb"]
+storage = ["wdk-sys/storage"]
+usb = ["wdk-sys/usb"]
+
+nightly = ["wdk/nightly", "wdk-sys/nightly"]
+
+[profile.dev]
+panic = "abort"
+lto = true
+
+[profile.release]
+panic = "abort"
+lto = true
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "forbid"
+
+[lints.clippy]
+# Lint Groups
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Individual Lints
+multiple_unsafe_ops_per_block = "forbid"
+undocumented_unsafe_blocks = "forbid"
+unnecessary_safety_doc = "forbid"
+
+[lints.rustdoc]
+bare_urls = "warn"
+broken_intra_doc_links = "warn"
+invalid_codeblock_attributes = "warn"
+invalid_html_tags = "warn"
+invalid_rust_codeblocks = "warn"
+missing_crate_level_docs = "warn"
+private_intra_doc_links = "warn"
+redundant_explicit_links = "warn"
+unescaped_backticks = "warn"
+
