@@ -1,30 +1,30 @@
-use alloc::vec::Vec;
+//! Helper traits for converting Rust strings to Windows `UNICODE_STRING`.
 
+use alloc::vec::Vec;
 use wdk_sys::UNICODE_STRING;
 
-
+/// Trait to convert a string-like type into a null-terminated `Vec<u16>`.
 pub trait ToUnicodeString {
+    /// Converts self to a null-terminated UTF-16 vector.
     fn to_u16_vec(&self) -> Vec<u16>;
 }
 
 impl ToUnicodeString for &str {
     fn to_u16_vec(&self) -> Vec<u16> {
-        // reserve space for null terminator
         let mut buf = Vec::with_capacity(self.len() + 1);
-
-        // iterate over each char and push the UTF-16 to the buf
         for c in self.chars() {
             let mut c_buf = [0; 2];
             let encoded = c.encode_utf16(&mut c_buf);
             buf.extend_from_slice(encoded);
         }
-
-        buf.push(0); // add null terminator
+        buf.push(0); // null terminator
         buf
     }
 }
 
+/// Trait to convert a `Vec<u16>` into a Windows `UNICODE_STRING`.
 pub trait ToWindowsUnicodeString {
+    /// Converts self into an `Option<UNICODE_STRING>`.
     fn to_windows_unicode_string(&self) -> Option<UNICODE_STRING>;
 }
 
@@ -34,36 +34,23 @@ impl ToWindowsUnicodeString for Vec<u16> {
     }
 }
 
-/// Creates a Windows API compatible unicode string from a u16 slice.
+/// Creates a Windows `UNICODE_STRING` from a `u16` slice.
 ///
+/// Returns `None` if the input is empty.
 ///
-/// <h1>Returns</h1>
-/// Returns an option UNICODE_STRING, if the len of the input string is 0 then
-/// the function will return None.
-pub fn create_unicode_string(s: &Vec<u16>) -> Option<UNICODE_STRING> {
-    //
-    // Check the length of the input string is greater than 0, if it isn't,
-    // we will return none
-    //
-    let len = if s.len() > 0 {
-        s.len()
-    } else {
+/// # Notes
+/// - `Length` excludes the null terminator (in bytes).
+/// - `MaximumLength` includes it (in bytes).
+/// - The returned `UNICODE_STRING` borrows the slice — caller must ensure
+///   the slice outlives the `UNICODE_STRING`.
+pub fn create_unicode_string(s: &[u16]) -> Option<UNICODE_STRING> {
+    if s.is_empty() {
         return None;
-    };
+    }
 
-    //
-    // Windows docs specifies for UNICODE_STRING:
-    //
-    // param 1 - length, Specifies the length, in bytes, of the string pointed to by the Buffer member,
-    // not including the terminating NULL character, if any.
-    //
-    // param 2 - max len, Specifies the total size, in bytes, of memory allocated for Buffer. Up to
-    // MaximumLength bytes may be written into the buffer without trampling memory.
-    //
-    // param 3 - buffer, Pointer to a wide-character string
-    //
-    // Therefore, we will do the below check to remove the null terminator from the len
+    let len = s.len();
 
+    // Exclude null terminator from Length if present
     let len_checked = if len > 0 && s[len - 1] == 0 {
         len - 1
     } else {

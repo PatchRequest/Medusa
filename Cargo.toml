@@ -1,12 +1,12 @@
 [package]
 edition = "2021"
 name = "medusa"
-version = "0.0.0"
-description = "A sample WDM driver that demonstrates WDM in RUST"
-repository = "https://github.com/microsoft/windows-drivers-rs"
+version = "0.1.0"
+description = "Proof-of-concept kernel-level game cheat driver written in Rust"
+repository = "https://github.com/PatchRequest/Medusa"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-keywords = ["windows", "driver", "sample", "example", "wdm"]
+keywords = ["windows", "driver", "kernel", "wdm", "game-hacking"]
 categories = ["hardware-support"]
 publish = false
 
@@ -24,7 +24,6 @@ wdk-alloc = { path = "../../crates/wdk-alloc", version = "0.3.1" }
 wdk = { path = "../../crates/wdk", version = "0.3.1" }
 wdk-panic = { path = "../../crates/wdk-panic", version = "0.3.1" }
 wdk-sys = { path = "../../crates/wdk-sys", version = "0.4.0" }
-mem = "0.5.0"
 ntapi = "0.4.1"
 
 [features]
@@ -72,4 +71,3 @@ missing_crate_level_docs = "warn"
 private_intra_doc_links = "warn"
 redundant_explicit_links = "warn"
 unescaped_backticks = "warn"
-

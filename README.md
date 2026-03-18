@@ -1,43 +1,122 @@
-# Kernel Driver in Rust
+# Medusa
 
-A Windows kernel driver written in Rust for fun and learning. Currently supports reading and writing arbitrary data in any process via userland communication.
+A proof-of-concept (POC) Windows kernel driver written in Rust, designed as a game cheating framework. Medusa provides arbitrary read/write access to any process's memory from kernel space via a simple device I/O interface.
 
-## Pre-requisites
+> **Disclaimer:** This project is for educational and research purposes only. Using kernel drivers to manipulate game memory may violate terms of service and applicable laws. Use responsibly.
 
-* WDK environment (either via eWDK or installed WDK)
-* LLVM
+## What It Does
+
+Medusa loads as a Windows kernel driver (`medusa.sys`) and exposes a device at `\\.\Medusa`. A userland application communicates with it via standard `CreateFile` / `WriteFile` / `ReadFile` Win32 calls to read or write memory in any target process — bypassing usermode protections like `PAGE_GUARD` and anti-cheat hooks.
+
+### Architecture
+
+```
+┌──────────────┐     WriteFile/ReadFile      ┌────────────────┐
+│  Userland    │  ◄─────────────────────────► │  \\.\Medusa    │
+│  Cheat App   │        DeviceIoControl       │  Kernel Driver │
+└──────────────┘                              └───────┬────────┘
+                                                      │
+                                              MmCopyVirtualMemory
+                                                      │
+                                              ┌───────▼────────┐
+                                              │  Target Game   │
+                                              │  Process       │
+                                              └────────────────┘
+```
+
+## Wire Protocol
+
+Commands are sent as raw bytes via `WriteFile()`:
+
+| Offset | Size    | Field                          |
+|--------|---------|--------------------------------|
+| 0      | 8 bytes | Target virtual address (u64 LE)|
+| 8      | 5 bytes | Command tag (see below)        |
+| 13     | 4 bytes | Target PID (u32 LE)            |
+| 17     | N bytes | Payload (varies by command)    |
+
+### Commands
+
+**Write** (`write`): Writes payload bytes to the target address.
+```
+[address:8][write:5][pid:4][data:N]
+```
+
+**Read** (`read\0`): Reads memory from the target address. Payload contains the read size as u32 LE.
+```
+[address:8][read\0:5][pid:4][size:4]
+```
+
+### Responses (via `ReadFile`)
+
+- Success: `ok` (2 bytes) + response data
+- Failure: `fail` (4 bytes)
+
+## Prerequisites
+
+- Windows 10/11 with test signing enabled (`bcdedit /set testsigning on`)
+- [WDK](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) (Windows Driver Kit) or eWDK
+- [LLVM](https://releases.llvm.org/) (for Rust kernel builds)
+- [Rust](https://rustup.rs/) with the `nightly` toolchain
+- [cargo-make](https://github.com/sagiegurari/cargo-make): `cargo install cargo-make`
+- The [windows-drivers-rs](https://github.com/microsoft/windows-drivers-rs) repository (Medusa lives inside its tree)
 
 ## Build
 
-* Run `cargo make` in this directory
+```powershell
+cargo make
+```
+
+The compiled driver will be at `target\debug\medusa.sys` (or `target\release\medusa.sys` for release builds).
+
+## Sign
+
+Sign the driver with a self-signed test certificate:
+
+```powershell
+.\sign.ps1
+# or for release builds:
+.\sign.ps1 -BuildProfile release
+```
 
 ## Install
 
-1. Copy the following to the DUT (Device Under Test: the computer you want to test the driver on):
-   1. The driver `package` folder located in the [Cargo Output Directory](https://doc.rust-lang.org/cargo/guide/build-cache.html). The Cargo Output Directory changes based off of build profile, target architecture, etc.
-     * Ex. `<REPO_ROOT>\target\x86_64-pc-windows-msvc\debug\package`, `<REPO_ROOT>\target\x86_64-pc-windows-msvc\release\package`, `<REPO_ROOT>\target\aarch64-pc-windows-msvc\debug\package`, `<REPO_ROOT>\target\aarch64-pc-windows-msvc\release\package`,
-     `<REPO_ROOT>\target\debug\package`,
-     `<REPO_ROOT>\target\release\package`
-   2. The version of `devgen.exe` from the WDK Developer Tools that matches the architecture of your DUT
-     * Ex. `C:\Program Files\Windows Kits\10\Tools\10.0.22621.0\x64\devgen.exe`. Note: This path will vary based off your WDK environment
-2. Install the Certificate on the DUT:
-   1. Double click the certificate
-   2. Click Install Certificate
-   3. Store Location: Local Machine -> Next
-   4. Place all certificates in the following Store -> Browse -> Trusted Root Certification Authorities -> Ok -> Next
-   5. Repeat 2-4 for Store -> Browse -> Trusted Publishers -> Ok -> Next
-   6. Finish
-3. Install the driver:
-   * In the package directory, run: `pnputil.exe /add-driver sample_wdm_driver.inf /install`
-4. Create a software device:
-   * In the directory that `devgen.exe` was copied to, run: `devgen.exe /add /hardwareid "root\SAMPLE_WDM_HW_ID"`
+1. Enable test signing on the target machine:
+   ```cmd
+   bcdedit /set testsigning on
+   ```
+   Reboot.
 
-## Test
+2. Copy `medusa.sys`, `medusa.inx`, and the certificate files to the target machine.
 
-* To capture prints:
-  * Start [DebugView](https://learn.microsoft.com/en-us/sysinternals/downloads/debugview)
-    1. Enable `Capture Kernel`
-    2. Enable `Enable Verbose Kernel Output`
-  * Alternatively, you can see prints in an active Windbg session.
-    1. Attach WinDBG
-    2. `ed nt!Kd_DEFAULT_Mask 0xFFFFFFFF`
+3. Install the certificate:
+   - Double-click `driver_cert.cer`
+   - Install → Local Machine → Trusted Root Certification Authorities
+   - Repeat for Trusted Publishers
+
+4. Install the driver:
+   ```cmd
+   pnputil.exe /add-driver medusa.inx /install
+   ```
+
+5. Create the device node:
+   ```cmd
+   devgen.exe /add /hardwareid "root\SAMPLE_WDM_HW_ID"
+   ```
+
+## Debug Output
+
+Use [DebugView](https://learn.microsoft.com/en-us/sysinternals/downloads/debugview) with "Capture Kernel" enabled, or attach WinDbg:
+
+```
+ed nt!Kd_DEFAULT_Mask 0xFFFFFFFF
+```
+
+All log lines are prefixed with `[medusa]`.
+
+## Known Limitations
+
+- **No synchronisation** on global buffers — this is a single-client POC, not production code
+- **No IOCTL interface** — uses raw read/write IRP dispatch (simpler but less flexible)
+- **Test-signed only** — requires test signing mode or a valid EV code signing certificate
+- **x64 only** — address parsing assumes 8-byte pointers

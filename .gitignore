@@ -4,13 +4,19 @@ target/
 # Claude Code files
 .claude/
 
-# Cargo lock file (optional for applications, required for libraries)
+# Cargo lock file
 Cargo.lock
 
 # IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Don't commit PFX private keys (CER is fine)
+# certs/*.pfx
