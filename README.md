@@ -114,6 +114,12 @@ ed nt!Kd_DEFAULT_Mask 0xFFFFFFFF
 
 All log lines are prefixed with `[medusa]`.
 
+## Blog Post
+
+Read more about this project on [patchi.fyi](https://patchi.fyi):
+
+- [Kernel Memory Driver](https://patchi.fyi/blog/medusa-kernel-memory-driver/)
+
 ## Known Limitations
 
 - **No synchronisation** on global buffers — this is a single-client POC, not production code
